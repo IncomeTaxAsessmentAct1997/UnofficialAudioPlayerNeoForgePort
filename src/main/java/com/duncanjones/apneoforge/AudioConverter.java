@@ -1,0 +1,179 @@
+package com.duncanjones.apneoforge;
+
+import de.maxhenkel.voicechat.api.mp3.Mp3Decoder;
+
+import javax.annotation.Nullable;
+import javax.sound.sampled.*;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
+public class AudioConverter {
+
+    public static AudioFormat FORMAT = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 48000F, 16, 1, 2, 48000F, false);
+
+    static {
+        try {
+            AudioFileFormat.Type[] types = AudioSystem.getAudioFileTypes();
+        } catch (Throwable t) {
+        }
+    }
+
+    @Nullable
+    public static AudioType getAudioType(Path path) throws IOException {
+        if (isWav(Files.newInputStream(path))) {
+            return AudioType.WAV;
+        }
+        if (isMp3File(Files.newInputStream(path))) {
+            return AudioType.MP3;
+        }
+        return null;
+    }
+
+    @Nullable
+    public static AudioType getAudioType(byte[] data) throws IOException {
+        if (isWav(new ByteArrayInputStream(data))) {
+            return AudioType.WAV;
+        }
+        if (isMp3File(new ByteArrayInputStream(data))) {
+            return AudioType.MP3;
+        }
+        return null;
+    }
+
+    private static String hexHeader(byte[] data) {
+        int len = Math.min(data.length, 16);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < len; i++) {
+            sb.append(String.format("%02X ", data[i]));
+        }
+        return sb.toString().trim();
+    }
+
+    public static boolean isWav(InputStream inputStream) throws IOException {
+        try (BufferedInputStream bis = new BufferedInputStream(inputStream)) {
+            AudioFileFormat fileFormat = AudioSystem.getAudioFileFormat(bis);
+            return fileFormat.getType().toString().equalsIgnoreCase("wave");
+        } catch (UnsupportedAudioFileException e) {
+            return false;
+        }
+    }
+
+    public static boolean isMp3File(InputStream inputStream) throws IOException {
+        try (BufferedInputStream bis = new BufferedInputStream(inputStream)) {
+            bis.mark(3);
+            byte[] header = new byte[3];
+            int read = bis.read(header);
+            bis.reset();
+
+            if (read < 2) {
+                return false;
+            }
+
+            if (read == 3 && header[0] == 'I' && header[1] == 'D' && header[2] == '3') {
+                return true;
+            }
+
+            boolean frameSync = (header[0] & 0xFF) == 0xFF && (header[1] & 0xE0) == 0xE0;
+            if (frameSync) {
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    public static short[] convert(Path file, float volume) throws IOException, UnsupportedAudioFileException {
+        return convert(file, getAudioType(file), volume);
+    }
+
+    public static short[] convert(Path file, AudioType audioType, float volume) throws IOException, UnsupportedAudioFileException {
+        if (audioType == AudioType.WAV) {
+            return convertWav(file, volume);
+        } else if (audioType == AudioType.MP3) {
+            return convertMp3(file, volume);
+        }
+        throw new UnsupportedAudioFileException("Unsupported audio type");
+    }
+
+    public static short[] convertWav(Path file, float volume) throws IOException, UnsupportedAudioFileException {
+        try (AudioInputStream source = AudioSystem.getAudioInputStream(file.toFile())) {
+            return convert(source, volume);
+        } catch (UnsupportedAudioFileException e) {
+            throw e;
+        }
+    }
+
+    private static short[] convert(AudioInputStream source, float volume) throws IOException {
+        AudioFormat sourceFormat = source.getFormat();
+        AudioFormat convertFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, sourceFormat.getSampleRate(), 16, sourceFormat.getChannels(), sourceFormat.getChannels() * 2, sourceFormat.getSampleRate(), false);
+        AudioInputStream stream1 = AudioSystem.getAudioInputStream(convertFormat, source);
+        AudioInputStream stream2 = AudioSystem.getAudioInputStream(FORMAT, stream1);
+        return Plugin.voicechatApi.getAudioConverter().bytesToShorts(adjustVolume(stream2.readAllBytes(), volume));
+    }
+
+    private static byte[] adjustVolume(byte[] audioSamples, float volume) {
+        for (int i = 0; i < audioSamples.length; i += 2) {
+            short buf1 = audioSamples[i + 1];
+            short buf2 = audioSamples[i];
+
+            buf1 = (short) ((buf1 & 0xFF) << 8);
+            buf2 = (short) (buf2 & 0xFF);
+
+            short res = (short) (buf1 | buf2);
+            res = (short) (res * volume);
+
+            audioSamples[i] = (byte) res;
+            audioSamples[i + 1] = (byte) (res >> 8);
+
+        }
+        return audioSamples;
+    }
+
+    public static short[] convertMp3(Path file, float volume) throws IOException, UnsupportedAudioFileException {
+        try {
+            Mp3Decoder mp3Decoder = Plugin.voicechatApi.createMp3Decoder(Files.newInputStream(file));
+            if (mp3Decoder == null) {
+                throw new IOException("Error creating mp3 decoder");
+            }
+            byte[] data = Plugin.voicechatApi.getAudioConverter().shortsToBytes(mp3Decoder.decode());
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(data);
+            AudioFormat audioFormat = mp3Decoder.getAudioFormat();
+            AudioInputStream source = new AudioInputStream(byteArrayInputStream, audioFormat, data.length / audioFormat.getFrameSize());
+            return convert(source, volume);
+        } catch (Exception e) {
+            AudioPlayer.LOGGER.warn("Error converting mp3 file with native decoder: {}", e.toString(), e);
+            try {
+                return convert(AudioSystem.getAudioInputStream(file.toFile()), volume);
+            } catch (UnsupportedAudioFileException fallbackEx) {
+                throw fallbackEx;
+            }
+        }
+    }
+
+    public enum AudioType {
+        MP3("mp3"),
+        WAV("wav");
+
+        private final String extension;
+
+        AudioType(String fileName) {
+            this.extension = fileName;
+        }
+
+        public boolean isValidFileName(Path path) {
+            return path.toString().toLowerCase().endsWith(".%s".formatted(extension));
+        }
+
+        public String getExtension() {
+            return extension;
+        }
+    }
+
+}
+
