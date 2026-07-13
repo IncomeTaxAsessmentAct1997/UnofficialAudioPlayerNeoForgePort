@@ -3,6 +3,7 @@ package com.duncanjones.apneoforge;
 
 import javax.annotation.Nullable;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.UUID;
 
@@ -18,8 +19,8 @@ public class UrlUtils {
 
         URL url;
         try {
-            url = new URL(urlString);
-        } catch (MalformedURLException e) {
+            url = URI.create(urlString).toURL();
+        } catch (IllegalArgumentException | MalformedURLException e) {
             AudioPlayer.LOGGER.error("Invalid web server URL: {}", urlString);
             return null;
         }
@@ -51,5 +52,3 @@ public class UrlUtils {
     }
 
 }
-
-

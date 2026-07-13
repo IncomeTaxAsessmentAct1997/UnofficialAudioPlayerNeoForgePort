@@ -56,7 +56,6 @@ public class Filebin {
                 }
 
                 String contentType = file.get("content-type").getAsString();
-                String debugFilename = file.has("filename") ? file.get("filename").getAsString() : "?";
 
                 if (contentType.equals("audio/wav") || contentType.equals("audio/mpeg")) {
                     long size = file.get("bytes").getAsLong();
@@ -104,4 +103,3 @@ public class Filebin {
     }
 
 }
-

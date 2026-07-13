@@ -5,13 +5,27 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
-public class TokenManager {
+public class TokenManager implements AutoCloseable {
+
+    private static final long CLEANUP_INTERVAL_SECONDS = 60L;
 
     private final Map<UUID, Token> tokens;
+    private final ScheduledExecutorService cleanupExecutor;
+    private final ScheduledFuture<?> cleanupTask;
 
     public TokenManager() {
         tokens = new ConcurrentHashMap<>();
+        cleanupExecutor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "AudioPlayerTokenCleanup");
+            thread.setDaemon(true);
+            return thread;
+        });
+        cleanupTask = cleanupExecutor.scheduleWithFixedDelay(this::cleanInvalidTokens, CLEANUP_INTERVAL_SECONDS, CLEANUP_INTERVAL_SECONDS, TimeUnit.SECONDS);
     }
 
     public UUID generateToken(UUID playerId) {
@@ -45,9 +59,14 @@ public class TokenManager {
         return t.isValid();
     }
 
-    //TODO Clean tokens regularly
     public void cleanInvalidTokens() {
         tokens.values().removeIf(token -> !token.isValid());
+    }
+
+    @Override
+    public void close() {
+        cleanupTask.cancel(false);
+        cleanupExecutor.shutdown();
     }
 
     protected static class Token {
@@ -79,5 +98,3 @@ public class TokenManager {
     }
 
 }
-
-

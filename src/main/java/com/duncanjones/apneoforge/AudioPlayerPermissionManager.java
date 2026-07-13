@@ -57,12 +57,10 @@ public class AudioPlayerPermissionManager implements PermissionManager<CommandSo
 
     private static class Permission {
         private final String permission;
-        private final PermissionType type;
         private final PermissionNode<Boolean> node;
 
         public Permission(String permission, PermissionType type) {
             this.permission = permission;
-            this.type = type;
             this.node = new PermissionNode<>(ResourceLocation.fromNamespaceAndPath(AudioPlayer.MODID, permission), PermissionTypes.BOOLEAN, (player, playerUUID, context) -> type.hasPermission(player));
         }
 
@@ -72,10 +70,6 @@ public class AudioPlayerPermissionManager implements PermissionManager<CommandSo
 
         public boolean hasPermission(ServerPlayer player) {
             return PermissionAPI.getPermission(player, node);
-        }
-
-        public PermissionType getType() {
-            return type;
         }
     }
 

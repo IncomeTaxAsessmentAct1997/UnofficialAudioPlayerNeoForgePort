@@ -10,8 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 public class AudioConverter {
 
@@ -19,7 +17,7 @@ public class AudioConverter {
 
     static {
         try {
-            AudioFileFormat.Type[] types = AudioSystem.getAudioFileTypes();
+            AudioSystem.getAudioFileTypes();
         } catch (Throwable t) {
         }
     }
@@ -44,15 +42,6 @@ public class AudioConverter {
             return AudioType.MP3;
         }
         return null;
-    }
-
-    private static String hexHeader(byte[] data) {
-        int len = Math.min(data.length, 16);
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < len; i++) {
-            sb.append(String.format("%02X ", data[i]));
-        }
-        return sb.toString().trim();
     }
 
     public static boolean isWav(InputStream inputStream) throws IOException {
@@ -176,4 +165,3 @@ public class AudioConverter {
     }
 
 }
-

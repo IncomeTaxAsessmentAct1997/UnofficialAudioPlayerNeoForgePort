@@ -6,6 +6,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.UUID;
 
@@ -35,12 +36,12 @@ public class AudioNetworking {
         int port = AudioPlayer.WEB_SERVER_CONFIG.port.get();
         if (!urlString.isBlank()) {
             try {
-                URL url = new URL(urlString);
+                URL url = URI.create(urlString).toURL();
                 host = url.getHost();
                 if (url.getPort() != -1) {
                     port = url.getPort();
                 }
-            } catch (MalformedURLException e) {
+            } catch (IllegalArgumentException | MalformedURLException e) {
                 AudioPlayer.LOGGER.error("Invalid web server URL: {}", urlString);
             }
         }

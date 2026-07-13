@@ -18,6 +18,8 @@ import javax.annotation.Nullable;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
@@ -73,7 +75,13 @@ public class AudioManager {
     }
 
     public static void saveSound(MinecraftServer server, UUID id, String url) throws UnsupportedAudioFileException, IOException {
-        byte[] data = download(new URL(url), AudioPlayer.SERVER_CONFIG.maxUploadSize.get());
+        URL parsedUrl;
+        try {
+            parsedUrl = URI.create(url).toURL();
+        } catch (IllegalArgumentException | MalformedURLException e) {
+            throw new IOException("Invalid URL: " + url, e);
+        }
+        byte[] data = download(parsedUrl, AudioPlayer.SERVER_CONFIG.maxUploadSize.get());
         saveSound(server, id, FileNameManager.getFileNameFromUrl(url), data);
     }
 

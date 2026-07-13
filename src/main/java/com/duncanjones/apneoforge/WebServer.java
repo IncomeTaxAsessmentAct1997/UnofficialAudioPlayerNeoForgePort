@@ -34,7 +34,7 @@ public class WebServer implements AutoCloseable {
         Options options = Options.builder()
                 .withPort(port)
                 .withHost(null)
-                .withRequestTimeout(Duration.ofSeconds(60))
+                .withRequestTimeout(Duration.ofSeconds(AudioPlayer.WEB_SERVER_CONFIG.requestTimeoutSeconds.get()))
                 .withConcurrency(1)
                 .withMaxRequestSize(AudioPlayer.SERVER_CONFIG.maxUploadSize.get().intValue())
                 .build();
@@ -270,6 +270,7 @@ public class WebServer implements AutoCloseable {
             eventLoop.stop();
             eventLoop = null;
         }
+        tokenManager.close();
     }
     private static final Map<String, String> MIME_TYPES = Map.of(
             "html", "text/html",

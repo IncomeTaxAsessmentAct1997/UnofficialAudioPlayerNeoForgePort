@@ -10,7 +10,7 @@ public class WebServerConfig {
     public final ConfigEntry<Long> tokenTimeout;
     public final ConfigEntry<String> authUsername;
     public final ConfigEntry<String> authPassword;
-    //TODO Configurable timeout
+    public final ConfigEntry<Integer> requestTimeoutSeconds;
 
     public WebServerConfig(ConfigBuilder builder) {
         port = builder.integerEntry(
@@ -45,8 +45,13 @@ public class WebServerConfig {
                 "The password for basic auth",
                 "If this is left empty, no auth will be used"
         );
+        requestTimeoutSeconds = builder.integerEntry(
+                "request_timeout_seconds",
+                60,
+                1,
+                Integer.MAX_VALUE,
+                "The maximum time in seconds a webserver request may take before it times out"
+        );
     }
 
 }
-
-
